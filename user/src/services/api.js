@@ -2,10 +2,17 @@ const API = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(
   /\/+$/,
   "",
 );
+
 export async function api(path, options = {}) {
+  const normalizedPath =
+    path === "/api" || path.startsWith("/api/")
+      ? path
+      : `/api${path.startsWith("/") ? path : `/${path}`}`;
+
   let response;
+
   try {
-    response = await fetch(`${API}/api${path}`, {
+    response = await fetch(`${API}${normalizedPath}`, {
       ...options,
       credentials: "include",
       headers: {
@@ -15,8 +22,9 @@ export async function api(path, options = {}) {
     });
   } catch (cause) {
     const error = new Error(
-      `Cannot connect to ExamPath server (${API}). Start the server with "cd server" then "npm run dev". Check server/.env, MongoDB connection, and that VITE_API_URL points to the correct API address. If using 127.0.0.1 in the browser, use the same host consistently or allow that origin in CLIENT_ORIGINS.`,
+      `Cannot connect to ExamPath server (${API}). Check backend status and CORS settings.`,
     );
+
     error.cause = cause;
     error.isNetworkError = true;
     throw error;
@@ -24,13 +32,16 @@ export async function api(path, options = {}) {
 
   const data =
     response.status === 204 ? null : await response.json().catch(() => ({}));
+
   if (!response.ok) {
     const error = new Error(
       data?.message || `Request failed (${response.status})`,
     );
+
     error.status = response.status;
     throw error;
   }
+
   return data;
 }
 

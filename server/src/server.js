@@ -3,12 +3,19 @@ import { config } from "./config/env.js";
 import app from "./app.js";
 
 try {
-  await mongoose.connect(config.mongoUri);
+  if (!config.mongoUri) {
+    throw new Error("MONGO_URI is missing.");
+  }
 
-  app.listen(config.port, "0.0.0.0", () => {
-    console.log(`ExamPath API listening on port ${config.port}`);
+  await mongoose.connect(config.mongoUri);
+  console.log("MongoDB connected successfully.");
+
+  const port = process.env.PORT || config.port;
+
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`ExamPath API listening on port ${port}`);
   });
 } catch (error) {
-  console.error("Failed to start ExamPath API:", error.message);
+  console.error("Failed to start ExamPath API:", error);
   process.exit(1);
 }
