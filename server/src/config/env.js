@@ -29,7 +29,7 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET,
   clientOrigins,
   cookieName: "exampath_token",
-  cookieSameSite: process.env.COOKIE_SAME_SITE || "lax",
+  cookieSameSite: "none",
   pricePaise: Number(process.env.ACCESS_PRICE_PAISE || 45000),
   durationDays: Number(process.env.ACCESS_DURATION_DAYS || 180),
   razorpayKeyId: process.env.RAZORPAY_KEY_ID,
