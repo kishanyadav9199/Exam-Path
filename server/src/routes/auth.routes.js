@@ -50,22 +50,28 @@ router.post(
 );
 
 // Login
+
 router.post(
   "/api/auth/login",
   asyncRoute(async (req, res) => {
+    const email = String(req.body?.email ?? "")
+      .trim()
+      .toLowerCase();
+
+    const password = req.body?.password;
+
+    if (
+      !email ||
+      typeof password !== "string" ||
+      password.length === 0 ||
+      password.length > 128
+    ) {
+      return res.status(400).json({
+        message: "Enter a valid email and password.",
+      });
+    }
+
     try {
-      const email = String(req.body?.email || "")
-        .trim()
-        .toLowerCase();
-
-      const password = String(req.body?.password || "");
-
-      if (!email || !password || email.length > 254 || password.length > 128) {
-        return res.status(400).json({
-          message: "Email and password are required.",
-        });
-      }
-
       const user = await User.findOne({ email }).select("+passwordHash");
 
       if (!user) {
@@ -74,11 +80,13 @@ router.post(
         });
       }
 
-      if (typeof user.passwordHash !== "string") {
-        console.error("Login failed: passwordHash is missing or invalid.");
-
+      if (
+        typeof user.passwordHash !== "string" ||
+        user.passwordHash.length === 0
+      ) {
+        console.error("Login error: missing password hash for user.");
         return res.status(500).json({
-          message: "Login configuration error. Contact support.",
+          message: "Account password data is invalid.",
         });
       }
 
@@ -92,15 +100,16 @@ router.post(
 
       signIn(user, res);
 
-      return res.json({
+      return res.status(200).json({
         user: publicUser(user),
       });
     } catch (error) {
-      console.error("Login failed:", error);
+      console.error("ExamPath login error:", error);
       throw error;
     }
   }),
 );
+
 
 // Logout
 
