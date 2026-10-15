@@ -26,5 +26,5 @@ export const signIn = (user, res) => {
     expiresIn: "7d",
   });
 
-  res.cookie(config.cookieName, token, cookieOptions());
+  res.cookie("exampath_token", token, cookieOptions());
 };

@@ -28,7 +28,7 @@ export const config = {
   mongoUri: process.env.MONGO_URI,
   jwtSecret: process.env.JWT_SECRET,
   clientOrigins,
-  cookieName: process.env.COOKIE_NAME || "exampath_token",
+  cookieName: "exampath_token",
   cookieSameSite: process.env.COOKIE_SAME_SITE || "lax",
   pricePaise: Number(process.env.ACCESS_PRICE_PAISE || 45000),
   durationDays: Number(process.env.ACCESS_DURATION_DAYS || 180),

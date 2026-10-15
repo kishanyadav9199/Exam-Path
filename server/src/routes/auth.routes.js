@@ -114,14 +114,13 @@ router.post(
 // Logout
 
 router.post("/api/auth/logout", (_req, res) => {
-  res.clearCookie(config.cookieName, {
+  res.clearCookie("exampath_token", {
     ...cookieOptions(),
     maxAge: undefined,
   });
 
-  return res.json({ message: "Logged out." });
+  res.json({ message: "Logged out." });
 });
-
 // Current authenticated user
 router.get("/api/auth/me", authenticate, (req, res) => {
   return res.json({
