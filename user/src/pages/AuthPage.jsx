@@ -2,39 +2,87 @@ import React, { useState } from "react";
 import { BookOpen, CheckCircle2, ArrowRight } from "lucide-react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../services/api";
+import { api, saveAuthToken } from "../services/api";
 import MainLayout from "../layouts/MainLayout";
-export default function AuthPage({ mode }) {
+
+export default function AuthPage({ mode = "login" }) {
   const { user, loading, setUser } = useAuth();
-  const nav = useNavigate();
-  const [form, setForm] = useState({ name: "", email: "", password: "" }),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  if (loading)
+  const navigate = useNavigate();
+
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const isLogin = mode === "login";
+
+  const update = (event) => {
+    const { name, value } = event.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (busy) return;
+
+    setError("");
+    setBusy(true);
+
+    try {
+      const payload = {
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+      };
+
+      if (!isLogin) {
+        payload.name = form.name.trim();
+      }
+
+      const response = await api(`/auth/${mode}`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      if (!response?.token || !response?.user) {
+        throw new Error(
+          "Server did not return both user and token. Check the backend authentication route.",
+        );
+      }
+
+      // Save JWT before navigating to the dashboard.
+      saveAuthToken(response.token);
+
+      // Update the React authentication state.
+      setUser(response.user);
+
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      setError(err?.message || "Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
     return (
       <MainLayout>
         <div className="loading">Loading ExamPath…</div>
       </MainLayout>
     );
-  if (user) return <Navigate to="/dashboard" replace />;
-  const update = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-  const submit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      const r = await api(`/auth/${mode}`, {
-        method: "POST",
-        body: JSON.stringify(form),
-      });
-      setUser(r.user);
-      nav("/dashboard");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
+  }
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <MainLayout>
       <div className="auth-wrap">
@@ -42,47 +90,61 @@ export default function AuthPage({ mode }) {
           <div className="auth-symbol">
             <BookOpen size={26} />
           </div>
+
           <div className="section-kicker">WELCOME TO EXAMPATH</div>
+
           <h2>
             A little practice.
             <br />
             <em>A lot more confidence.</em>
           </h2>
+
           <p>
             Build a routine, measure your progress and walk into your next exam
             prepared.
           </p>
+
           <div className="auth-benefit">
-            <CheckCircle2 /> Your progress, in one place
+            <CheckCircle2 />
+            Your progress, in one place
           </div>
+
           <div className="auth-benefit">
-            <CheckCircle2 /> Secure personal dashboard
+            <CheckCircle2 />
+            Secure personal dashboard
           </div>
         </div>
+
         <form className="auth-form" onSubmit={submit}>
           <div className="section-kicker">
-            {mode === "login" ? "GOOD TO SEE YOU AGAIN" : "START YOUR JOURNEY"}
+            {isLogin ? "GOOD TO SEE YOU AGAIN" : "START YOUR JOURNEY"}
           </div>
-          <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+
+          <h1>{isLogin ? "Welcome back" : "Create your account"}</h1>
+
           <p className="muted">
-            {mode === "login"
+            {isLogin
               ? "Enter your details to continue."
               : "Sign up to explore exam-wise practice."}
           </p>
-          {mode === "register" && (
+
+          {!isLogin && (
             <label>
               Full name
               <input
+                type="text"
                 name="name"
                 value={form.name}
                 onChange={update}
                 required
-                minLength="2"
-                maxLength="80"
+                minLength={2}
+                maxLength={80}
+                autoComplete="name"
                 placeholder="Your name"
               />
             </label>
           )}
+
           <label>
             Email address
             <input
@@ -91,10 +153,12 @@ export default function AuthPage({ mode }) {
               value={form.email}
               onChange={update}
               required
+              maxLength={254}
               autoComplete="email"
               placeholder="you@example.com"
             />
           </label>
+
           <label>
             Password
             <input
@@ -103,29 +167,30 @@ export default function AuthPage({ mode }) {
               value={form.password}
               onChange={update}
               required
-              minLength="8"
-              maxLength="128"
-              autoComplete={
-                mode === "login" ? "current-password" : "new-password"
-              }
+              minLength={8}
+              maxLength={128}
+              autoComplete={isLogin ? "current-password" : "new-password"}
               placeholder="At least 8 characters"
             />
           </label>
-          {error && <div className="error-box">{error}</div>}
-          <button className="btn primary full" disabled={busy}>
-            {busy
-              ? "Please wait…"
-              : mode === "login"
-                ? "Sign in"
-                : "Create account"}{" "}
-            <ArrowRight size={17} />
+
+          {error && (
+            <div className="error-box" role="alert">
+              {error}
+            </div>
+          )}
+
+          <button type="submit" className="btn primary full" disabled={busy}>
+            {busy ? "Please wait…" : isLogin ? "Sign in" : "Create account"}
+
+            {!busy && <ArrowRight size={17} />}
           </button>
+
           <p className="auth-switch">
-            {mode === "login"
-              ? "New to ExamPath? "
-              : "Already have an account? "}
-            <Link to={mode === "login" ? "/register" : "/login"}>
-              {mode === "login" ? "Create an account" : "Sign in"}
+            {isLogin ? "New to ExamPath? " : "Already have an account? "}
+
+            <Link to={isLogin ? "/register" : "/login"}>
+              {isLogin ? "Create an account" : "Sign in"}
             </Link>
           </p>
         </form>

@@ -17,11 +17,20 @@ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 const app = express();
 
 app.disable("x-powered-by");
+
 app.use(helmet());
 
+// CORS: configure once for both student and admin frontends.
 const allowedOrigins = new Set([
   ...config.clientOrigins,
-  ...(config.isProd ? [] : ["http://localhost:5173", "http://localhost:5174"]),
+  ...(config.isProd
+    ? []
+    : [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+      ]),
 ]);
 
 app.use(
@@ -33,6 +42,8 @@ app.use(
 
       return callback(new Error("Origin not allowed by CORS"));
     },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
@@ -60,7 +71,6 @@ app.use(
   }),
 );
 
-// Health check
 app.get("/", (_req, res) => {
   res.json({ message: "ExamPath API is running." });
 });
@@ -69,14 +79,12 @@ app.get("/api/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-// Existing API routers
 app.use(authRoutes);
 app.use(examRoutes);
 app.use(adminRoutes);
 app.use(paymentRoutes);
 app.use(testRoutes);
 
-// Not-found handler
 app.use((req, res) => {
   res.status(404).json({
     message: "Route not found.",
@@ -84,7 +92,6 @@ app.use((req, res) => {
   });
 });
 
-// Error handler
 app.use((err, _req, res, _next) => {
   if (err?.code === 11000) {
     return res.status(409).json({

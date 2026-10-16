@@ -1,16 +1,13 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-
-import { config } from "../config/env.js";
 import { User } from "../models/index.js";
 import { authenticate } from "../middlewares/auth.middleware.js";
 import { asyncRoute } from "../utils/asyncRoute.js";
-import { cookieOptions, publicUser, signIn } from "../utils/auth.js";
+import { publicUser, signIn } from "../utils/auth.js";
 import { registerSchema } from "../validators/schemas.js";
 
 const router = Router();
 
-// Register
 router.post(
   "/api/auth/register",
   asyncRoute(async (req, res) => {
@@ -23,11 +20,9 @@ router.post(
       });
     }
 
-    const email = parsed.data.email.trim().toLowerCase();
+    const email = parsed.data.email.toLowerCase();
 
-    const existingUser = await User.exists({ email });
-
-    if (existingUser) {
+    if (await User.exists({ email })) {
       return res.status(409).json({
         message: "An account with this email already exists.",
       });
@@ -36,104 +31,62 @@ router.post(
     const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
     const user = await User.create({
-      name: parsed.data.name.trim(),
+      name: parsed.data.name,
       email,
       passwordHash,
     });
 
-    signIn(user, res);
+    const token = signIn(user);
 
     return res.status(201).json({
       user: publicUser(user),
+      token,
     });
   }),
 );
 
-// Login
-
 router.post(
   "/api/auth/login",
   asyncRoute(async (req, res) => {
-    const email = String(req.body?.email ?? "")
+    const email = String(req.body.email || "")
       .trim()
       .toLowerCase();
+    const password = String(req.body.password || "");
 
-    const password = req.body?.password;
-
-    if (
-      !email ||
-      typeof password !== "string" ||
-      password.length === 0 ||
-      password.length > 128
-    ) {
+    if (!email || !password || email.length > 254 || password.length > 128) {
       return res.status(400).json({
-        message: "Enter a valid email and password.",
+        message: "Email and password are required.",
       });
     }
 
-    try {
-      const user = await User.findOne({ email }).select("+passwordHash");
+    const user = await User.findOne({ email }).select("+passwordHash");
 
-      if (!user) {
-        return res.status(401).json({
-          message: "Invalid email or password.",
-        });
-      }
-
-      if (
-        typeof user.passwordHash !== "string" ||
-        user.passwordHash.length === 0
-      ) {
-        console.error("Login error: missing password hash for user.");
-        return res.status(500).json({
-          message: "Account password data is invalid.",
-        });
-      }
-
-      const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-
-      if (!passwordMatches) {
-        return res.status(401).json({
-          message: "Invalid email or password.",
-        });
-      }
-
-      signIn(user, res);
-
-      return res.status(200).json({
-        user: publicUser(user),
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
       });
-    } catch (error) {
-      console.error("ExamPath login error:", error);
-      throw error;
     }
+
+    const token = signIn(user);
+    console.log("LOGIN ROUTE VERSION: bearer-token-v1");
+    console.log("LOGIN TOKEN GENERATED:", Boolean(token));
+
+    return res.json({
+      user: publicUser(user),
+      token,
+    });
   }),
 );
 
-
-// Logout
-
 router.post("/api/auth/logout", (_req, res) => {
-  res.clearCookie("exampath_token", {
-    ...cookieOptions(),
-    maxAge: undefined,
-  });
-
-  res.json({ message: "Logged out." });
-});
-// Current authenticated user
-router.get("/api/auth/me", authenticate, (req, res) => {
-  return res.json({
-    user: publicUser(req.user),
-  });
+  return res.json({ message: "Logged out successfully." });
 });
 
-// Update profile
 router.patch(
   "/api/auth/profile",
   authenticate,
   asyncRoute(async (req, res) => {
-    const name = String(req.body?.name || "").trim();
+    const name = String(req.body.name || "").trim();
 
     if (name.length < 2 || name.length > 80) {
       return res.status(400).json({
@@ -142,7 +95,6 @@ router.patch(
     }
 
     req.user.name = name;
-
     await req.user.save();
 
     return res.json({
@@ -150,5 +102,11 @@ router.patch(
     });
   }),
 );
+
+router.get("/api/auth/me", authenticate, (req, res) => {
+  return res.json({
+    user: publicUser(req.user),
+  });
+});
 
 export default router;
