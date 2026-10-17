@@ -18,10 +18,10 @@ const questionSchema = new mongoose.Schema(
     text: { type: String, required: true, trim: true, maxlength: 5000 },
     options: {
       type: [String],
-      validate: (v) => v.length === 4,
+      validate: (v) => v.length === 5,
       required: true,
     },
-    correctOption: { type: Number, required: true, min: 0, max: 3 },
+    correctOption: { type: Number, required: true, min: 0, max: 4 },
     explanation: { type: String, default: "", maxlength: 5000 },
     marks: { type: Number, default: 1, min: 0, max: 100 },
     negativeMarks: { type: Number, default: 0, min: 0, max: 100 },
