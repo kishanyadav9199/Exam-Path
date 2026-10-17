@@ -56,12 +56,10 @@ router.post(
     if (!attempt)
       return res.status(404).json({ message: "Active attempt not found." });
     if (!(await hasExamAccess(req.user, attempt.exam)))
-      return res
-        .status(402)
-        .json({
-          message:
-            "Your access to this test series has expired. Purchase it again to continue.",
-        });
+      return res.status(402).json({
+        message:
+          "Your access to this test series has expired. Purchase it again to continue.",
+      });
     const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
     const ids = answers
       .filter((a) => mongoose.isValidObjectId(a.question))
@@ -89,7 +87,13 @@ router.post(
       )
         continue;
       const selected = Number(ans.selectedOption);
-      if (!Number.isInteger(selected) || selected < 0 || selected > 3) continue;
+      if (
+        !Number.isInteger(selected) ||
+        selected < 0 ||
+        selected >= q.options.length
+      ) {
+        continue;
+      }
       if (selected === q.correctOption) {
         score += q.marks;
         correctCount++;
